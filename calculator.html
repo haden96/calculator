@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <title>Kalkulator zakładów</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0; 
+      padding: 0;
+      background: #f1f1f1;
+    }
+    .container {
+      max-width: 540px;
+      margin: 40px auto;
+      padding: 20px;
+      background: #fff;
+      border-radius: 6px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+    }
+    h1 {
+      font-size: 1.6rem;
+      margin: 0 0 1.2rem 0;
+      text-align: center;
+    }
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: bold;
+    }
+    input[type="text"] {
+      width: 100px;
+      padding: 6px;
+      margin-left: 0.5rem;
+    }
+    button {
+      display: inline-block;
+      margin: 1rem 0;
+      padding: 0.6rem 1.2rem;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 1rem;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    #wynik p {
+      margin: 0.5rem 0;
+    }
+    #wynik h3 {
+      margin-top: 1.5rem;
+      margin-bottom: 0.5rem;
+    }
+    #wynik ul {
+      list-style: none;
+      padding-left: 0;
+    }
+    #wynik li {
+      margin-bottom: 0.3rem;
+    }
+    #wynik ol {
+      padding-left: 1.2rem;
+    }
+    .info-warning {
+      color: red;
+    }
+    .info-ok {
+      color: green;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Kalkulator zakładów</h1>
+  
+    <label>
+      Kurs 1 (O1):
+      <input type="text" id="o1" value="3.0" />
+    </label>
+    <label>
+      Kurs 2 (O2):
+      <input type="text" id="o2" value="3.0" />
+    </label>
+    <label>
+      Kurs kontry (O3):
+      <input type="text" id="o3" value="3.0" />
+    </label>
+    <label>
+      Całkowita stawka (T):
+      <input type="text" id="stake" value="30" />
+    </label>
+    
+    <button onclick="oblicz()">Oblicz</button>
+  
+    <div id="wynik"></div>
+  </div>
+  
+  <script>
+    function oblicz() {
+      const O1 = parseFloat(document.getElementById('o1').value);
+      const O2 = parseFloat(document.getElementById('o2').value);
+      const O3 = parseFloat(document.getElementById('o3').value);
+      const T  = parseFloat(document.getElementById('stake').value);
+      
+      if (!O1 || !O2 || !O3 || !T) {
+        document.getElementById('wynik').innerHTML = 
+          '<p class="info-warning">Upewnij się, że wszystkie pola są wypełnione poprawnymi wartościami.</p>';
+        return;
+      }
+      
+      // Suma odwrotności (sprawdzamy arbitraż):
+      const sumaOdwrot = (1 / O1) + (1 / O2) + (1 / O3);
+      let info = "";
+      if (Math.abs(sumaOdwrot - 1) > 0.000001) {
+        info = `
+          <p class="info-warning">
+            Uwaga: 1/O1 + 1/O2 + 1/O3 = ${sumaOdwrot.toFixed(3)}, co różni się od 1.
+            <br>Możliwa strata (to nie jest „pewne granie”).
+          </p>
+        `;
+      } else {
+        info = `
+          <p class="info-ok">
+            Warunek 1/O1 + 1/O2 + 1/O3 = 1 jest spełniony (potencjalny arbitraż).
+          </p>
+        `;
+      }
+      
+      // Wyliczamy stawki wg formuł arbitrażowych,
+      // niezależnie, czy warunek arbitrażu jest spełniony.
+      if (Math.abs(O3 - 1) < 0.000001) {
+        document.getElementById('wynik').innerHTML = `
+          ${info}
+          <p class="info-warning">
+            Błąd: O3 - 1 = 0 (kurs = 1.0). Nie można obliczyć stawki kontry (dzielenie przez zero).
+          </p>`;
+        return;
+      }
+
+      // Obliczenia stawek
+      const stosunek = O1 / O2;        // = S2 / S1
+      const A = 1 + stosunek;          // = 1 + (O1/O2)
+      const B = A + A / (O3 - 1);      // A * [1 + 1/(O3-1)]
+
+      const S1 = T / B;
+      const S2 = stosunek * S1;
+      const S3 = (S1 + S2) / (O3 - 1);
+      
+      // Możliwe wyniki:
+      // (1) Oba zakłady 1 i 2 wygrywają
+      const obaWygr = S1 * (O1 - 1) + S2 * (O2 - 1) - S3;
+      // (2) Wygrywa tylko 1
+      const tylko1 = S1 * (O1 - 1) - S2 - S3;
+      // (3) Wygrywa tylko 2
+      const tylko2 = S2 * (O2 - 1) - S1 - S3;
+      // (4) Oba przegrywają (wtedy powinna „wejść” kontra)
+      const obaPrzeg = S3 * (O3 - 1) - S1 - S2;
+      
+      // Tworzymy blok HTML z wynikami
+      const wynikHTML = `
+        ${info}
+        <h3>Obliczone stawki:</h3>
+        <ul>
+          <li>S1 (zakład 1): <b>${S1.toFixed(2)} zł</b></li>
+          <li>S2 (zakład 2): <b>${S2.toFixed(2)} zł</b></li>
+          <li>S3 (kontra):   <b>${S3.toFixed(2)} zł</b></li>
+        </ul>
+        <h3>Możliwe wyniki (zysk/strata):</h3>
+        <ol>
+          <li>Oba zakłady 1 i 2 wygrywają: 
+              <b>${obaWygr.toFixed(2)} zł</b></li>
+          <li>Wygrywa tylko zakład 1:      
+              <b>${tylko1.toFixed(2)} zł</b></li>
+          <li>Wygrywa tylko zakład 2:      
+              <b>${tylko2.toFixed(2)} zł</b></li>
+          <li>Oba zakłady przegrywają (wygrywa kontra): 
+              <b>${obaPrzeg.toFixed(2)} zł</b></li>
+        </ol>
+      `;
+      
+      document.getElementById('wynik').innerHTML = wynikHTML;
+    }
+  </script>
+</body>
+</html>
